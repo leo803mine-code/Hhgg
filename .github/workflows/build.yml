@@ -5,31 +5,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Locate project
+      - name: Unzip project
         run: |
-          echo "== files =="
-          find . -maxdepth 5 -not -path './.git/*' | sort | head -100
-          S=$(find . -maxdepth 5 -type d -path '*/src/main/java' | awk '{print length, $0}' | sort -n | head -1 | cut -d' ' -f2-)
-          if [ -z "$S" ]; then echo "ERROR: папка src/main/java не найдена в репозитории"; exit 1; fi
-          R=$(cd "$S/../../.." && pwd)
-          echo "ROOT=$R" >> $GITHUB_ENV
-          if [ ! -f "$R/src/main/java/dev/flr/visuals/CosmeticsScreen.java" ]; then echo "ERROR: в src нет новых файлов 1.3.0"; exit 1; fi
-          if [ ! -f "$R/settings.gradle" ]; then
-          cat > "$R/settings.gradle" <<'EOF'
-          pluginManagement { repositories { gradlePluginPortal(); maven { url = 'https://maven.neoforged.net/releases' } } }
-          rootProject.name = 'flrvisuals'
-          EOF
-          fi
-          if [ ! -f "$R/build.gradle" ]; then
-          cat > "$R/build.gradle" <<'EOF'
-          plugins { id 'java'; id 'net.neoforged.moddev' version '1.0.21' }
-          version = '1.3.0'
-          group = 'dev.flr'
-          base { archivesName = 'flrvisuals' }
-          java.toolchain.languageVersion = JavaLanguageVersion.of(21)
-          neoForge {
-              version = '21.1.172'
-              runs { client { client() } }
-              mods { flrvisuals { sourceSet sourceSets.main } }
-          }
-          EOF
+          mkdir -p /tmp/proj
+          unzip -q -o flrvisuals-1.3.0-src.zip -d /tmp/proj
+          ls -la /tmp/proj
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 21 }
+      - uses: gradle/actions/setup-gradle@v4
+        with: { gradle-version: 8.10.2 }
+      - name: Build
+        working-directory: /tmp/proj
+        run: gradle build --no-daemon
+      - uses: actions/upload-artifact@v4
+        with: { name: flrvisuals, path: /tmp/proj/build/libs/*.jar }
